@@ -1,0 +1,14 @@
+# Archivos compilados y carpetas de salida de NetBeans
+/build/
+/dist/
+*.class
+
+# Configuración privada e historial de NetBeans
+/nbproject/private/
+/nbproject/Makefile-*.mk
+/nbproject/Package-*.bash
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.dbvideos/ 
+videos/ 

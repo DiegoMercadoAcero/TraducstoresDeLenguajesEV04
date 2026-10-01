@@ -1,0 +1,293 @@
+/*
+DIEGO ARMANDO MERCADO ACERO
+HECTOR ALEJANDRO NUNEZ DELGADO
+ANDRES JOSUE HERNANDEZ VELARDE
+LEONARDO ALEXEI FONSECA NAVA
+*/
+package analizadores.sinctactico_archivos;
+
+import java_cup.runtime.*;
+import java.util.HashMap;
+import java.util.Map;
+
+parser code {:
+    private Map<String, Integer> tablaMetodos = new HashMap<>();
+
+    public void registrarMetodo(String nombre, int numParams) {
+        tablaMetodos.put(nombre, numParams);
+    }
+
+    public void validarLlamada(String nombre, int numArgs, int linea, int columna) {
+        if (tablaMetodos.containsKey(nombre)) {
+            int requeridos = tablaMetodos.get(nombre);
+            if (requeridos != numArgs) {
+                System.err.println("Error en línea " + linea + ", columna " + columna +
+                                   ": el método/función '" + nombre + "' requiere " + requeridos +
+                                   " argumentos y se recibieron " + numArgs + ".");
+            }
+        }
+    }
+
+    @Override
+    public void report_error(String message, Object info) {
+        if (info instanceof Symbol) {
+            Symbol s = (Symbol) info;
+            String tokenEncontrado = (s.value != null) ? s.value.toString() : (s.sym == sym.EOF ? "EOF" : "Token[" + s.sym + "]");
+            System.err.println("Error sintáctico en línea " + s.left + ", columna " + s.right + ": se encontró '" + tokenEncontrado + "' - " + message);
+        } else {
+            System.err.println("Error sintáctico: " + message);
+        }
+    }
+:};
+
+/* --- TERMINALES --- */
+terminal FUNCTION, FUNCION, RETURN, RETORNAR;
+terminal LET, VAR, CONST;
+terminal SI, SINO, SEGUN, CASO, DEFECTO, ROMPER;
+terminal MIENTRAS, HACER, PARA;
+terminal LEER, ESCRIBIR;
+
+// Literales e Identificadores
+terminal Object BOOLEAN_LITERAL;
+terminal NULL_LITERAL;
+terminal String INTEGER_LITERAL, FLOAT_LITERAL, STRING_LITERAL, IDENTIFIER;
+
+// Operadores y Delimitadores
+terminal EQ, NOT_EQ, GREATER, LESS, GREATER_EQ, LESS_EQ;
+terminal AND, OR, NOT;
+terminal PLUS, MINUS, MULT, DIV, MOD, ASSIGN;
+terminal LBRACE, RBRACE, LPAREN, RPAREN;
+terminal SEMICOLON, COMMA, DOT, COLON;
+
+
+/* --- NO TERMINALES --- */
+non terminal inicio;
+non terminal lista_metodos, declaracion_metodo, cuerpo_metodo, lista_sentencias, sentencia;
+non terminal Integer parametros_optativos, lista_parametros;
+non terminal Integer argumentos_optativos, lista_argumentos;
+non terminal llamada_metodo, retorno, declaracion_var;
+non terminal lectura, escritura, asignacion, asignacion_exp;
+non terminal lista_identificadores, lista_elementos, lista_expresiones;
+non terminal expresion, bloque;
+non terminal estructura_control, seleccion_simple, seleccion_doble, seleccion_multiple;
+non terminal lista_casos, caso_item, defecto_opt, cuerpo_caso;
+non terminal ciclo_mientras, ciclo_hacer_mientras, ciclo_para;
+
+/* --- PRECEDENCIA DE OPERADORES --- */
+precedence right SINO;
+precedence left OR;
+precedence left AND;
+precedence left EQ, NOT_EQ;
+precedence left GREATER, LESS, GREATER_EQ, LESS_EQ;
+precedence left PLUS, MINUS;
+precedence left MULT, DIV, MOD;
+precedence right NOT;
+
+/* --- REGLAS GRAMATICALES --- */
+start with inicio;
+
+inicio ::= lista_metodos
+        {: System.out.println("-> Análisis sintáctico completado correctamente."); :}
+        ;
+
+// Lista y Definición de Funciones / Métodos
+lista_metodos ::= lista_metodos declaracion_metodo
+                | declaracion_metodo
+                ;
+
+declaracion_metodo ::= FUNCTION IDENTIFIER:id LPAREN parametros_optativos:numParams RPAREN LBRACE cuerpo_metodo RBRACE
+                     {:
+                         parser.registrarMetodo(id, numParams);
+                         if (numParams == 0) System.out.println("Regla reconocida: metodo_sin_parametros");
+                         else System.out.println("Regla reconocida: metodo_con_parametros");
+                         System.out.println("Regla reconocida: definicion_metodo");
+                     :}
+                     | FUNCION IDENTIFIER:id LPAREN parametros_optativos:numParams RPAREN LBRACE cuerpo_metodo RBRACE
+                     {:
+                         parser.registrarMetodo(id, numParams);
+                         if (numParams == 0) System.out.println("Regla reconocida: metodo_sin_parametros");
+                         else System.out.println("Regla reconocida: metodo_con_parametros");
+                         System.out.println("Regla reconocida: definicion_metodo");
+                     :}
+                     | FUNCTION IDENTIFIER error LBRACE cuerpo_metodo RBRACE
+                     {: System.err.println("Error sintáctico: se esperaba '(' después del nombre de la función."); :}
+                     ;
+
+parametros_optativos ::= lista_parametros:p
+                       {: RESULT = p; System.out.println("Regla reconocida: lista_parametros"); :}
+                       | /* vacío */
+                       {: RESULT = 0; :}
+                       ;
+
+lista_parametros ::= IDENTIFIER
+                   {: RESULT = 1; :}
+                   | lista_parametros:lp COMMA IDENTIFIER
+                   {: RESULT = lp + 1; :}
+                   | lista_parametros COMMA error
+                   {: System.err.println("Error sintáctico: se esperaba un identificador para el parámetro."); RESULT = 0; :}
+                   ;
+
+cuerpo_metodo ::= lista_sentencias
+                | /* vacío */
+                ;
+
+bloque ::= LBRACE lista_sentencias RBRACE
+         {: System.out.println("Regla reconocida: bloque"); :}
+         | LBRACE RBRACE
+         {: System.out.println("Regla reconocida: bloque"); :}
+         ;
+
+lista_sentencias ::= lista_sentencias sentencia
+                   | sentencia
+                   ;
+
+// Sentencias
+sentencia ::= lectura
+            | escritura
+            | asignacion
+            | declaracion_var
+            | estructura_control
+            | llamada_metodo SEMICOLON
+            | retorno
+            | error SEMICOLON
+            {: System.err.println("[Recuperación]: Sentencia sintácticamente incorrecta omitida."); :}
+            ;
+
+// Declaración de Variables
+declaracion_var ::= LET IDENTIFIER SEMICOLON
+                  | LET IDENTIFIER ASSIGN expresion SEMICOLON
+                  | VAR IDENTIFIER SEMICOLON
+                  | VAR IDENTIFIER ASSIGN expresion SEMICOLON
+                  | CONST IDENTIFIER ASSIGN expresion SEMICOLON
+                  ;
+
+// Sentencia de Retorno
+retorno ::= RETURN expresion SEMICOLON
+          {: System.out.println("Regla reconocida: retorno"); :}
+          | RETURN SEMICOLON
+          {: System.out.println("Regla reconocida: retorno"); :}
+          | RETORNAR expresion SEMICOLON
+          {: System.out.println("Regla reconocida: retorno"); :}
+          | RETORNAR SEMICOLON
+          {: System.out.println("Regla reconocida: retorno"); :}
+          ;
+
+// Llamadas a Métodos / Funciones
+llamada_metodo ::= IDENTIFIER:id LPAREN argumentos_optativos:numArgs RPAREN
+                 {:
+                     System.out.println("Regla reconocida: llamada_metodo");
+                     parser.validarLlamada(id, numArgs, idleft, idright);
+                 :}
+                 | IDENTIFIER:id error SEMICOLON
+                 {: System.err.println("Error sintáctico en línea " + idleft + ", columna " + idright + ": se esperaba '(' para iniciar la llamada al método."); :}
+                 ;
+
+argumentos_optativos ::= lista_argumentos:a
+                       {: RESULT = a; System.out.println("Regla reconocida: lista_argumentos"); :}
+                       | /* vacío */
+                       {: RESULT = 0; :}
+                       ;
+
+lista_argumentos ::= expresion
+                   {: RESULT = 1; :}
+                   | lista_argumentos:la COMMA expresion
+                   {: RESULT = la + 1; :}
+                   | lista_argumentos COMMA COMMA expresion
+                   {: System.err.println("Error sintáctico: se esperaba una expresión después de ','."); RESULT = 0; :}
+                   | COMMA expresion
+                   {: System.err.println("Error sintáctico: se esperaba un argumento antes de ','."); RESULT = 0; :}
+                   | lista_argumentos COMMA error
+                   {: System.err.println("Error sintáctico: se esperaba una expresión o ')' al finalizar los argumentos."); RESULT = 0; :}
+                   ;
+
+// Estructuras de Control (Utilizan 'expresion' directamente)
+estructura_control ::= seleccion_simple
+                     | seleccion_doble
+                     | seleccion_multiple
+                     | ciclo_mientras
+                     | ciclo_hacer_mientras
+                     | ciclo_para
+                     ;
+
+seleccion_simple ::= SI LPAREN expresion RPAREN bloque
+                   {: System.out.println("Regla reconocida: seleccion_simple"); :}
+                   ;
+
+seleccion_doble ::= SI LPAREN expresion RPAREN bloque SINO bloque
+                  {: System.out.println("Regla reconocida: seleccion_doble"); :}
+                  ;
+
+seleccion_multiple ::= SEGUN LPAREN expresion RPAREN LBRACE lista_casos defecto_opt RBRACE
+                     {: System.out.println("Regla reconocida: seleccion_multiple"); :}
+                     ;
+
+lista_casos ::= lista_casos caso_item
+              | caso_item
+              ;
+
+caso_item ::= CASO expresion COLON cuerpo_caso ROMPER SEMICOLON
+            | CASO expresion COLON cuerpo_caso
+            ;
+
+defecto_opt ::= DEFECTO COLON cuerpo_caso ;
+
+cuerpo_caso ::= lista_sentencias | /* vacío */ ;
+
+ciclo_mientras ::= MIENTRAS LPAREN expresion RPAREN bloque
+                 {: System.out.println("Regla reconocida: ciclo_mientras"); :}
+                 ;
+
+ciclo_hacer_mientras ::= HACER bloque MIENTRAS LPAREN expresion RPAREN SEMICOLON
+                       {: System.out.println("Regla reconocida: ciclo_hacer_mientras"); :}
+                       ;
+
+ciclo_para ::= PARA LPAREN asignacion_exp SEMICOLON expresion SEMICOLON asignacion_exp RPAREN bloque
+             {: System.out.println("Regla reconocida: ciclo_para"); :}
+             ;
+
+// Sentencias de Lectura, Escritura y Asignación
+lectura ::= LEER LPAREN lista_identificadores RPAREN SEMICOLON ;
+
+escritura ::= ESCRIBIR LPAREN lista_elementos RPAREN SEMICOLON ;
+
+asignacion ::= asignacion_exp SEMICOLON ;
+
+asignacion_exp ::= lista_identificadores ASSIGN lista_expresiones ;
+
+lista_identificadores ::= IDENTIFIER
+                        | lista_identificadores COMMA IDENTIFIER
+                        ;
+
+lista_elementos ::= expresion
+                  | lista_elementos COMMA expresion
+                  ;
+
+lista_expresiones ::= expresion
+                  | lista_expresiones COMMA expresion
+                  ;
+
+// Expresión Unificada (Elimina conflictos Reduce/Reduce y aprovecha NULL_LITERAL / DOT)
+expresion ::= expresion PLUS expresion
+            | expresion MINUS expresion
+            | expresion MULT expresion
+            | expresion DIV expresion
+            | expresion MOD expresion
+            | expresion AND expresion
+            | expresion OR expresion
+            | expresion GREATER expresion
+            | expresion LESS expresion
+            | expresion GREATER_EQ expresion
+            | expresion LESS_EQ expresion
+            | expresion EQ expresion
+            | expresion NOT_EQ expresion
+            | NOT expresion
+            | LPAREN expresion RPAREN
+            | expresion DOT IDENTIFIER
+            | llamada_metodo
+            | IDENTIFIER
+            | INTEGER_LITERAL
+            | FLOAT_LITERAL
+            | STRING_LITERAL
+            | BOOLEAN_LITERAL
+            | NULL_LITERAL
+            ;

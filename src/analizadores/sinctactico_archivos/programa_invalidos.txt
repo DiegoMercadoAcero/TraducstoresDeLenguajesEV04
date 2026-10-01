@@ -1,0 +1,17 @@
+function iniciar( {
+    escribir("Inicio");
+}
+
+function sumar(a,, b) {
+    retornar a + b;
+}
+
+function mostrar(valor {
+    escribir(valor);
+}
+
+function proceso() {
+    iniciar;
+    sumar(a,,b);
+    mostrar(;
+}

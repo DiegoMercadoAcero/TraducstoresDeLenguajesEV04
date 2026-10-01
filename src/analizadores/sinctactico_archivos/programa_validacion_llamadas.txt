@@ -1,0 +1,10 @@
+function sumar(a, b) {
+    retornar a + b;
+}
+
+function proceso() {
+    sumar(10, 20);
+    sumar(10);
+    sumar(10, 20, 30);
+}
+

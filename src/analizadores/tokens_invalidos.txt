@@ -1,0 +1,14 @@
+// Caso 1: Caracteres no reconocidos
+var total = 100 # @ §;
+
+// Caso 2: Identificadores mal formados
+let 99variable = 5;
+const 123nombre = "test";
+
+// Caso 3: Literales numéricos incorrectos
+let precio = 12.34.56;
+let hex = 0xXYZ;
+
+// Caso 4: Cadenas mal formadas (sin comilla final)
+let mensaje = "Esta es una cadena sin cerrar
+let valido = "Cadena correcta";
